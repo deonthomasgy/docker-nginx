@@ -1,5 +1,4 @@
-FROM ubuntu:16.04
-#refresh!!
+FROM ubuntu:18.04
 
 MAINTAINER Deon Thomas "Deon.Thomas.GY@gmail.com"
 
