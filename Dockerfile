@@ -19,7 +19,7 @@ RUN cd /tmp && \
 ## Compile NGINX with desired module
 RUN cd /tmp/nginx-${NGINX_VERSION} && \
     rm -rf /opt/bitnami/nginx && \
-    ./configure --prefix=/opt/bitnami/nginx --with-compat --with-http_perl_module=dynamic && \
+    ./configure --prefix=/opt/bitnami/nginx --with-compat --with-http_perl_module=dynamic --with-http_js_module=dynamic && \
     make && \
     make install
 
@@ -30,8 +30,11 @@ RUN install_packages libperl-dev
 ## Install ngx_http_perl_module files
 COPY --from=builder /usr/local/lib/x86_64-linux-gnu/perl /usr/local/lib/x86_64-linux-gnu/perl
 COPY --from=builder /opt/bitnami/nginx/modules/ngx_http_perl_module.so /opt/bitnami/nginx/modules/ngx_http_perl_module.so
-## Enable module
-RUN echo "load_module modules/ngx_http_perl_module.so;" | cat - /opt/bitnami/nginx/conf/nginx.conf > /tmp/nginx.conf && \
+## Install ngx_http_js_module files
+COPY --from=builder /opt/bitnami/nginx/modules/ngx_http_js_module.so /opt/bitnami/nginx/modules/ngx_http_js_module.so
+
+## Enable modules
+RUN echo -e "load_module modules/ngx_http_perl_module.so;\nload_module modules/ngx_http_js_module.so;" | cat - /opt/bitnami/nginx/conf/nginx.conf > /tmp/nginx.conf && \
     cp /tmp/nginx.conf /opt/bitnami/nginx/conf/nginx.conf
 
 # Extend server_names_hash_bucket_size to 128;
