@@ -7,7 +7,7 @@ USER root
 ## Redeclare NGINX_VERSION so it can be used as a parameter inside this build stage
 ARG NGINX_VERSION
 ## Install required packages and build dependencies
-RUN install_packages dirmngr git gpg gpg-agent curl build-essential libpcre3-dev zlib1g-dev libperl-dev libssl-dev
+RUN install_packages dirmngr git gpg gpg-agent curl build-essential libpcre3-dev zlib1g-dev libperl-dev libssl-dev libxml2-dev libxslt1-dev
 ## Add trusted NGINX PGP key for tarball integrity verification
 #RUN gpg --keyserver pgp.mit.edu --recv-key 520A9993A1C052F8
 ## Download NGINX, verify integrity and extract
