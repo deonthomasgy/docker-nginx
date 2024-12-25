@@ -16,10 +16,11 @@ RUN cd /tmp && \
     curl -O http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz.asc && \
   #  gpg --verify nginx-${NGINX_VERSION}.tar.gz.asc nginx-${NGINX_VERSION}.tar.gz && \
     tar xzf nginx-${NGINX_VERSION}.tar.gz
-## Compile NGINX with desired module
+## Download NJS module source code
+RUN cd /tmp && git clone https://github.com/nginx/njs.git
 RUN cd /tmp/nginx-${NGINX_VERSION} && \
     rm -rf /opt/bitnami/nginx && \
-    ./configure --prefix=/opt/bitnami/nginx --with-compat --with-http_perl_module=dynamic --with-http_js_module=dynamic && \
+    ./configure --prefix=/opt/bitnami/nginx --with-compat --with-http_perl_module=dynamic --add-dynamic-module=/tmp/njs/nginx && \
     make && \
     make install
 
