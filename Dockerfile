@@ -1,61 +1,42 @@
+## nginx on Ubuntu 24.04 (noble), installed from the official nginx.org apt repo.
+## NGINX_VERSION is the upstream stable release; NGINX_DEB_REL/NJS_VERSION are
+## the matching nginx.org package revisions for noble.
 ARG NGINX_VERSION=1.30.3
+ARG NGINX_DEB_REL=1~noble
+ARG NJS_VERSION=1.30.3+1.0.0-1~noble
 
-FROM nginx:${NGINX_VERSION} AS builder
-USER root
-## Redeclare NGINX_VERSION so it can be used as a parameter inside this build stage
+FROM ubuntu:24.04
+## Redeclare build args for use inside this stage
 ARG NGINX_VERSION
-## Install required packages and build dependencies
+ARG NGINX_DEB_REL
+ARG NJS_VERSION
+USER root
+
+## Install prerequisites needed to add the nginx.org apt repository
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    dirmngr git gpg gpg-agent curl build-essential \
-    libpcre2-dev zlib1g-dev libperl-dev libssl-dev \
-    libxml2-dev libxslt1-dev && \
+    ca-certificates curl gnupg && \
     rm -rf /var/lib/apt/lists/*
-## Add trusted NGINX PGP key for tarball integrity verification
-#RUN gpg --keyserver pgp.mit.edu --recv-key 520A9993A1C052F8
-## Download NGINX, verify integrity and extract
-RUN cd /tmp && \
-    curl -O http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
-    curl -O http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz.asc && \
-  #  gpg --verify nginx-${NGINX_VERSION}.tar.gz.asc nginx-${NGINX_VERSION}.tar.gz && \
-    tar xzf nginx-${NGINX_VERSION}.tar.gz
-## Download NJS module source code (checkout version compatible with NGINX version)
-RUN cd /tmp && git clone https://github.com/nginx/njs.git && \
-    cd njs && \
-    git checkout $(git tag | grep "^${NGINX_VERSION}" | head -1 || git tag | sort -V | tail -1)
-## Get NGINX configure arguments from running nginx and build modules
-RUN CONFIGURE_ARGS=$(nginx -V 2>&1 | grep "configure arguments" | sed -e 's/.*configure arguments: //') && \
-    cd /tmp/nginx-${NGINX_VERSION} && \
-    eval ./configure $CONFIGURE_ARGS \
-    --with-compat \
-    --with-http_perl_module=dynamic \
-    --add-dynamic-module=/tmp/njs/nginx && \
-    make modules
 
-FROM nginx:${NGINX_VERSION}
-## Redeclare NGINX_VERSION for use in COPY commands
-ARG NGINX_VERSION
-USER root
-## Ensure modules directory exists
-RUN mkdir -p /usr/lib/nginx/modules
-## Install ngx_http_perl_module system package dependencies and runtime libraries
+## Add the official nginx.org signing key and the stable Ubuntu (noble) repository
+RUN curl -fsSL https://nginx.org/keys/nginx_signing.key | \
+      gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/ubuntu noble nginx" \
+      > /etc/apt/sources.list.d/nginx.list
+
+## Install nginx plus the njs and perl dynamic modules from nginx.org, and gosu.
+## The nginx-module-perl package installs nginx.pm into the system Perl path, so
+## no manual Perl module wiring is required.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libperl-dev libpcre2-8-0 libxml2 libxslt1.1 && \
+    apt-get install -y --no-install-recommends \
+    nginx=${NGINX_VERSION}-${NGINX_DEB_REL} \
+    nginx-module-njs=${NJS_VERSION} \
+    nginx-module-perl=${NGINX_VERSION}-${NGINX_DEB_REL} \
+    gosu && \
     rm -rf /var/lib/apt/lists/*
-## Install ngx_http_perl_module files
-## Note: Perl libraries are provided by libperl-dev package, no need to copy
-COPY --from=builder /tmp/nginx-${NGINX_VERSION}/objs/ngx_http_perl_module.so /usr/lib/nginx/modules/ngx_http_perl_module.so
-## Copy nginx.pm Perl module to multiple locations in Perl's @INC for compatibility
-RUN mkdir -p /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl5/5.36
-COPY --from=builder /tmp/nginx-${NGINX_VERSION}/src/http/modules/perl/nginx.pm /usr/share/perl5/nginx.pm
-COPY --from=builder /tmp/nginx-${NGINX_VERSION}/src/http/modules/perl/nginx.pm /usr/lib/x86_64-linux-gnu/perl5/5.36/nginx.pm
-## Set PERL5LIB to ensure Perl can find nginx.pm
-ENV PERL5LIB=/usr/share/perl5:/usr/lib/x86_64-linux-gnu/perl5/5.36:$PERL5LIB
-## Install ngx_http_js_module files
-COPY --from=builder /tmp/nginx-${NGINX_VERSION}/objs/ngx_http_js_module.so /usr/lib/nginx/modules/ngx_http_js_module.so
 
-## Enable modules
-## Note: Perl module is commented out by default due to initialization issues.
+## Enable modules.
+## Note: the perl module is commented out by default due to initialization issues.
 ## Uncomment the perl module line if you need to use perl directives in your config.
 RUN { \
     echo "# load_module /usr/lib/nginx/modules/ngx_http_perl_module.so;"; \
@@ -75,14 +56,9 @@ RUN awk '/^http {/ { print; print "    variables_hash_max_size 2048;"; print "  
 RUN sed -i 's|error_log.*/var/log/nginx/error.log.*|error_log /dev/stderr notice;|' /etc/nginx/nginx.conf && \
     sed -i 's|access_log.*/var/log/nginx/access.log.*|access_log /dev/stdout main;|' /etc/nginx/nginx.conf
 
-# Fix log directory permissions for user 101
-RUN chown -R 101:101 /var/log/nginx /var/cache/nginx && \
+# Fix log/cache directory permissions for the nginx user
+RUN chown -R nginx:nginx /var/log/nginx /var/cache/nginx && \
     chmod -R 755 /var/log/nginx /var/cache/nginx
-
-# Install gosu for switching users in entrypoint
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends gosu && \
-    rm -rf /var/lib/apt/lists/*
 
 # Create entrypoint script to set up SSL symlink at runtime
 # This allows configs to use /etc/ssl/nsgi/ while the actual mount is /etc/ssl/nginx/
