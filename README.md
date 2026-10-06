@@ -17,18 +17,19 @@ of the `Dockerfile`.
 ## Build and publish
 
 ```sh
-docker build -t princeamd/nginx:1.30.5 .
-docker tag princeamd/nginx:1.30.5 princeamd/nginx:latest
-docker push princeamd/nginx:1.30.5 && docker push princeamd/nginx:latest
+docker build --label org.opencontainers.image.revision="$(git rev-parse HEAD)" -t princeamd/nginx:1.30.5-1 .
+docker tag princeamd/nginx:1.30.5-1 princeamd/nginx:latest
+docker push princeamd/nginx:1.30.5-1 && docker push princeamd/nginx:latest
 ```
 
 To update: bump `NGINX_VERSION`/`NJS_VERSION` (the nginx.org noble package
 versions), `MODSECURITY_*` or `CRS_*`, and replace each `*_SHA256` with the
 checksum the project publishes for the new release.
 
-A build that keeps the versions but changes the image (rules, config) gets its
-own tag, such as `1.30.5-1`, so a host can tell builds apart and go back to the
-previous one. `docker run` only pulls an image the host lacks: on the proxy,
+A build that keeps the versions but changes the image (rules, config) gets the
+next suffix (`1.30.5-1`, then `-2`…), so a host can tell builds apart and go
+back to the previous one; `1.30.5` is the build before the 2026-10-06 rule
+changes. `docker run` only pulls an image the host lacks: on the proxy,
 `docker pull` the new tag, set it as the default `IMAGE` in
 `~/nginx-proxy/run-nginx.sh` and run that.
 
@@ -106,9 +107,10 @@ docker run --name thomas-nginx -p 443:443 \
   -d princeamd/nginx:latest
 ```
 
-On the proxy, `~/nginx-proxy/run-nginx.sh` starts it. Roll back with
-`NGINX_IMAGE=princeamd/nginx:1.26-debian-12 ./run-nginx.sh`, after removing the
-ModSecurity `load_module` and `modsecurity` lines (the old image has no such module).
+On the proxy, `~/nginx-proxy/run-nginx.sh` starts it. Roll back to the previous
+build with `NGINX_IMAGE=princeamd/nginx:1.30.5 ./run-nginx.sh`, or to the image
+without ModSecurity with `NGINX_IMAGE=princeamd/nginx:1.26-debian-12 ./run-nginx.sh`
+after removing the ModSecurity `load_module` and `modsecurity` lines.
 
 License
 ---
