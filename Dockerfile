@@ -66,10 +66,13 @@ RUN cd "nginx-${NGINX_VERSION}" && \
     make modules && \
     cp objs/ngx_http_modsecurity_module.so /src/
 
+## The Core Rule Set. crs-setup.conf is the project's example with our settings
+## (modsec/crs-setup.local.conf) appended.
+COPY modsec/crs-setup.local.conf /src/
 RUN mkdir -p /out/modsec/crs && \
     cp "modsecurity-v${MODSECURITY_VERSION}/unicode.mapping" /out/modsec/ && \
     cp -r "coreruleset-${CRS_VERSION}/rules" /out/modsec/crs/ && \
-    cp "coreruleset-${CRS_VERSION}/crs-setup.conf.example" /out/modsec/crs/crs-setup.conf && \
+    cat "coreruleset-${CRS_VERSION}/crs-setup.conf.example" crs-setup.local.conf > /out/modsec/crs/crs-setup.conf && \
     cp "coreruleset-${CRS_VERSION}/LICENSE" /out/modsec/crs/LICENSE && \
     rm -f /out/modsec/crs/rules/*.example
 
@@ -117,7 +120,16 @@ COPY --from=modsecurity /usr/local/modsecurity/lib/libmodsecurity.so.3* /usr/loc
 COPY --from=modsecurity /src/ngx_http_modsecurity_module.so /usr/lib/nginx/modules/
 COPY --from=modsecurity /out/modsec /etc/nginx/modsec
 COPY modsec/modsecurity.conf modsec/main.conf /etc/nginx/modsec/
-RUN ldconfig && nginx -V 2>&1 | grep -q "nginx/${NGINX_VERSION}"
+## Our exceptions, loaded with the rules (crs/rules/*.conf, by name): REQUEST-900
+## before them, RESPONSE-999 after.
+COPY modsec/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf modsec/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf \
+     /etc/nginx/modsec/crs/rules/
+## The module must load and the rules parse: the entrypoint's nginx -t refuses
+## to start the server otherwise.
+RUN ldconfig && nginx -V 2>&1 | grep -q "nginx/${NGINX_VERSION}" && \
+    printf '%s\n' 'load_module /usr/lib/nginx/modules/ngx_http_modsecurity_module.so;' 'pid /tmp/modsec-check.pid;' \
+      'events {}' 'http { modsecurity_rules_file /etc/nginx/modsec/main.conf; }' > /tmp/modsec-check.conf && \
+    nginx -e stderr -t -q -c /tmp/modsec-check.conf && rm -f /tmp/modsec-check.conf /tmp/modsec-check.pid
 
 ## Default configuration, used when nothing is mounted over it. The perl and
 ## ModSecurity modules are commented out there; uncomment to use them.

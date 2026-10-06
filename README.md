@@ -26,6 +26,12 @@ To update: bump `NGINX_VERSION`/`NJS_VERSION` (the nginx.org noble package
 versions), `MODSECURITY_*` or `CRS_*`, and replace each `*_SHA256` with the
 checksum the project publishes for the new release.
 
+A build that keeps the versions but changes the image (rules, config) gets its
+own tag, such as `1.30.5-1`, so a host can tell builds apart and go back to the
+previous one. `docker run` only pulls an image the host lacks: on the proxy,
+`docker pull` the new tag, set it as the default `IMAGE` in
+`~/nginx-proxy/run-nginx.sh` and run that.
+
 ## Paths
 
 The image keeps the paths of the earlier Bitnami-based `princeamd/nginx:*-debian-*`
@@ -63,12 +69,29 @@ http {
   (`{"transaction": …}`), with the client, request line, status and rule
   messages only. Request and response headers and bodies (cookies, tokens, user
   data) are never logged.
-- Request bodies up to 100 MB pass; bodies past the inspection limits are
-  inspected in part, never rejected for their size.
+- File uploads up to 100 MB pass, and bigger bodies are inspected in part.
+  Other bodies (JSON, forms) over 1 MiB fail to parse (rule 200002): logged
+  while watching, refused with 400 once blocking is on.
 - `main.conf` loads the engine settings and the Core Rule Set at paranoia level 1.
   For local settings and exceptions, copy it next to your config and add
   `Include` lines before and after the rules (see the proxy's
   `includes/modsec/main.conf`).
+- `crs/crs-setup.conf` is the Core Rule Set's example with
+  `modsec/crs-setup.local.conf` appended: the allowed methods are
+  `GET HEAD POST OPTIONS PUT PATCH DELETE`, the writes of the REST APIs behind
+  our proxy. Real methods outside the list (PROPFIND, MKCOL…) are still flagged
+  (911100); nginx refuses TRACE and CONNECT itself.
+- `crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf` and
+  `RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf` (from `modsec/`) hold the
+  exceptions for normal traffic of the platforms behind the proxy: on paths
+  ending `/biometric/clock` the face photo (`face_image`, base64) leaves the
+  rules' targets, and the MCP argument name
+  `json.params._meta.claudecode/toolUseId` (it contains `.claude`) leaves rule
+  930120. Any config that includes `crs/rules/*.conf` loads them, before and
+  after the rules. Exceptions for one platform (its host, or a path on it) stay
+  in that config.
+- The build fails unless the module loads and the rules parse (`nginx -t`): the
+  entrypoint runs the same test and refuses to start otherwise.
 
 Load the rules once at `http` level: a `modsecurity_rules_file` in every
 `server` block parses the Core Rule Set once per server.
