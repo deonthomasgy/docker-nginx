@@ -1,0 +1,8 @@
+FROM princeamd/nginx@sha256:5e97ec2f75beb458f6dfee0994bc867456680027c752deccfaf18df328133cd1
+USER root
+# Fixed runtime packages; fail the build if a security version is unavailable.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends apt \
+ && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' apt)" ge '2.8.4ubuntu0.1' \
+ && rm -rf /var/lib/apt/lists/*
+USER root

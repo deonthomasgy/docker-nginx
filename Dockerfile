@@ -6,10 +6,10 @@
 ## the matching nginx.org package revisions for noble. Every downloaded source
 ## is pinned by SHA-256 (matching the projects' published checksums; the nginx
 ## tarball was also checked against its PGP signature).
-ARG NGINX_VERSION=1.30.5
+ARG NGINX_VERSION=1.30.6
 ARG NGINX_DEB_REL=1~noble
-ARG NJS_VERSION=1.30.5+1.0.1-1~noble
-ARG NGINX_SRC_SHA256=6c20565aa2325cb82216ae804f4a4ff1875179014759a381c42ddc8e11c4906d
+ARG NJS_VERSION=1.30.6+1.0.2-1~noble
+ARG NGINX_SRC_SHA256=3cf46f5ed7504d460125866b7bea99fb357f31d887e2e63b35503310e9b8b6c8
 ARG MODSECURITY_VERSION=3.0.17
 ARG MODSECURITY_SHA256=f283b33d5c21130fd3a15c84a93a1abe12bd1949edaf44288b12af571b671a50
 ARG MODSECURITY_NGINX_VERSION=1.0.4
@@ -30,7 +30,10 @@ ARG MODSECURITY_NGINX_SHA256
 ARG CRS_VERSION
 ARG CRS_SHA256
 
+## Apply available Ubuntu fixes, including packages inherited from the base.
 RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    dpkg --compare-versions "$(dpkg-query -W -f='${Version}' apt)" ge 2.8.4ubuntu0.1 && \
     apt-get install -y --no-install-recommends \
     build-essential ca-certificates curl pkg-config \
     libpcre2-dev libxml2-dev libyajl-dev zlib1g-dev libssl-dev && \
@@ -90,8 +93,10 @@ LABEL org.opencontainers.image.title="nginx" \
       org.opencontainers.image.description="nginx ${NGINX_VERSION} (nginx.org, Ubuntu 24.04) with ModSecurity ${MODSECURITY_VERSION} and OWASP CRS ${CRS_VERSION}" \
       org.opencontainers.image.source="https://github.com/deonthomasgy/docker-nginx"
 
-## Install prerequisites needed to add the nginx.org apt repository
+## Apply available Ubuntu fixes and install the repository prerequisites.
 RUN apt-get update && \
+    apt-get upgrade -y --no-install-recommends && \
+    dpkg --compare-versions "$(dpkg-query -W -f='${Version}' apt)" ge 2.8.4ubuntu0.1 && \
     apt-get install -y --no-install-recommends \
     ca-certificates curl gnupg && \
     rm -rf /var/lib/apt/lists/*
@@ -99,7 +104,7 @@ RUN apt-get update && \
 ## Add the official nginx.org signing key and the stable Ubuntu (noble) repository
 RUN curl -fsSL https://nginx.org/keys/nginx_signing.key | \
       gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/ubuntu noble nginx" \
+    echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] https://nginx.org/packages/ubuntu noble nginx" \
       > /etc/apt/sources.list.d/nginx.list
 
 ## Install nginx plus the njs and perl dynamic modules from nginx.org, gosu, and
