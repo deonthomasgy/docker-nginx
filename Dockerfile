@@ -6,10 +6,10 @@
 ## the matching nginx.org package revisions for noble. Every downloaded source
 ## is pinned by SHA-256 (matching the projects' published checksums; the nginx
 ## tarball was also checked against its PGP signature).
-ARG NGINX_VERSION=1.30.6
+ARG NGINX_VERSION=1.30.7
 ARG NGINX_DEB_REL=1~noble
-ARG NJS_VERSION=1.30.6+1.0.2-1~noble
-ARG NGINX_SRC_SHA256=3cf46f5ed7504d460125866b7bea99fb357f31d887e2e63b35503310e9b8b6c8
+ARG NJS_VERSION=1.30.7+1.0.2-1~noble
+ARG NGINX_SRC_SHA256=2565b5c837050e958f70fb0f73c48e2bca4542ad349fd356f46fb0c72610bc6e
 ARG MODSECURITY_VERSION=3.0.17
 ARG MODSECURITY_SHA256=f283b33d5c21130fd3a15c84a93a1abe12bd1949edaf44288b12af571b671a50
 ARG MODSECURITY_NGINX_VERSION=1.0.4

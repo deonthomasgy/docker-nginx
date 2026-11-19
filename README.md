@@ -6,7 +6,7 @@ switch on. This image runs our proxy (`thomas-nginx` on mintage-nginx-proxy-1).
 
 | Component | Version |
 |---|---|
-| nginx (nginx.org) | 1.30.5 |
+| nginx (nginx.org) | 1.30.7 |
 | ModSecurity (libmodsecurity, built from source) | 3.0.17 |
 | ModSecurity-nginx connector (dynamic module) | 1.0.4 |
 | OWASP Core Rule Set | 4.30.0 |
@@ -14,12 +14,16 @@ switch on. This image runs our proxy (`thomas-nginx` on mintage-nginx-proxy-1).
 Versions and SHA-256 checksums of every download are pinned as `ARG`s at the top
 of the `Dockerfile`.
 
+The 1.30.7 stable release fixes the five NGINX vulnerabilities in the
+[November 18 security advisories](https://nginx.org/en/security_advisories.html).
+Build this release with the main Dockerfile.
+
 ## Build and publish
 
 ```sh
-docker build --label org.opencontainers.image.revision="$(git rev-parse HEAD)" -t princeamd/nginx:1.30.5-1 .
-docker tag princeamd/nginx:1.30.5-1 princeamd/nginx:latest
-docker push princeamd/nginx:1.30.5-1 && docker push princeamd/nginx:latest
+docker build --pull --label org.opencontainers.image.revision="$(git rev-parse HEAD)" -t princeamd/nginx:1.30.7 .
+docker tag princeamd/nginx:1.30.7 princeamd/nginx:latest
+docker push princeamd/nginx:1.30.7 && docker push princeamd/nginx:latest
 ```
 
 To update: bump `NGINX_VERSION`/`NJS_VERSION` (the nginx.org noble package
